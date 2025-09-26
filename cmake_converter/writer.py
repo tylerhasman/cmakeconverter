@@ -733,6 +733,7 @@ class CMakeWriter:
             depends,
             ''
         )
+        self.__write_custom_build_file_events(context, cmake_file, depends)
 
     @staticmethod
     def __write_target_build_events(context, cmake_file, value_name, depends,
@@ -774,6 +775,60 @@ class CMakeWriter:
             )
             if text:
                 cmake_file.write('\n')
+
+    def __write_custom_build_file_events(self, context, cmake_file, depends):
+        """ Writes custom build events for specific files into CMakeLists.txt """
+        for setting in context.settings:
+            settings = context.settings[setting]
+            if 'custom_build_commands' in settings and settings['custom_build_commands']:
+                for custom_build in settings['custom_build_commands']:
+                    if isinstance(custom_build, dict) and 'file_path' in custom_build:
+                        self.__write_single_custom_build_file_event(
+                            context, cmake_file, custom_build, depends
+                        )
+
+    def __write_single_custom_build_file_event(self, context, cmake_file, custom_build, depends):
+        """ Writes a single custom build file event into CMakeLists.txt """
+        file_path = custom_build.get('file_path', '')
+        commands = custom_build.get('commands', [])
+        outputs = custom_build.get('outputs', '')
+        message = custom_build.get('message', '')
+        additional_inputs = custom_build.get('additional_inputs', '')
+        
+        if not commands:
+            return
+            
+        # Write comment
+        CMakeWriter.write_comment(cmake_file, 'Custom build for {}'.format(file_path))
+        
+        # Prepare outputs
+        outputs_str = ''
+        if outputs:
+            outputs_str = '{0}OUTPUT "{1}"\n'.format(context.indent, outputs)
+        
+        # Prepare depends
+        depends_str = ''
+        if depends:
+            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, depends)
+        elif additional_inputs:
+            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, additional_inputs)
+        
+        # Prepare comment
+        comment_str = ''
+        if message:
+            comment_str = '{0}COMMENT "{1}"\n'.format(context.indent, message)
+        
+        # Write the custom command
+        cmake_file.write('add_custom_command_if(\n')
+        cmake_file.write(outputs_str)
+        cmake_file.write('{0}COMMANDS\n'.format(context.indent))
+        
+        for command in commands:
+            cmake_file.write('{0}{1}\n'.format(context.indent * 2, command))
+        
+        cmake_file.write(depends_str)
+        cmake_file.write(comment_str)
+        cmake_file.write(')\n\n')
 
     @staticmethod
     def write_sln_dependencies(context, cmake_file):

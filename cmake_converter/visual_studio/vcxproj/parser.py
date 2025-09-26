@@ -77,7 +77,7 @@ class VCXParser(Parser):
             'None': self._parse_nodes,
             'Text': self._parse_nodes,
             'Xml': self._parse_nodes,
-            'CustomBuild': self._parse_nodes,
+            'CustomBuild': self.__parse_custom_build,
             'SubType': self.do_nothing_node_stub,  # no support in CMake
             'PreBuildEvent': context.dependencies.set_target_pre_build_events,
             'PreLinkEvent': context.dependencies.set_target_pre_link_events,
@@ -111,6 +111,11 @@ class VCXParser(Parser):
             'TargetName': self.__parse_target_name_node,
             'EnablePREfast': self.do_nothing_node_stub,     # no support from CMake
             'AdditionalOptions': self.__parse_additional_options,
+            'FileType': self.__parse_custom_build_file_type,
+            'Command': self.__parse_custom_build_command,
+            'Outputs': self.__parse_custom_build_outputs,
+            'Message': self.__parse_custom_build_message,
+            'AdditionalInputs': self.__parse_custom_build_additional_inputs,
         })
         return node_handlers
 
@@ -127,7 +132,7 @@ class VCXParser(Parser):
             'None_Include': self.__parse_other_files_include_attr,
             'Text_Include': self.__parse_other_files_include_attr,
             'Xml_Include': self.__parse_other_files_include_attr,
-            'CustomBuild_Include': self.__parse_other_files_include_attr,
+            'CustomBuild_Include': self.__parse_custom_build_include_attr,
             'Condition': self.__parse_condition,
             'ProjectReference_Include': context.dependencies.add_target_reference,
             'Target_Name': self.__parse_target_name_attr,
@@ -304,3 +309,75 @@ class VCXParser(Parser):
 
         if target_name_value == 'EnsureNuGetPackageBuildImports':
             raise StopParseException()
+
+    def __parse_custom_build(self, context, node):
+        """Parse CustomBuild node and its children"""
+        self._parse_nodes(context, node)
+
+    def __parse_custom_build_include_attr(self, context, attr_name, value, custom_build_node):
+        """Handle CustomBuild Include attribute"""
+        del attr_name, value
+        
+        # Store the file path for this CustomBuild item
+        file_path = custom_build_node.attrib['Include']
+        
+        # Create a file context for this CustomBuild item
+        file_context = context.files.add_file_from_node(
+            context,
+            files_container=context.other_project_files,
+            file_node=custom_build_node,
+            file_node_attr='Include',
+            source_group=''
+        )
+        
+        if file_context is not None:
+            # Parse the CustomBuild node children to collect custom build data
+            self._parse_nodes(file_context, custom_build_node)
+            context.warnings_count += file_context.warnings_count
+            
+            # Collect custom build data from the file context
+            custom_build_data = {}
+            if 'custom_build_commands' in file_context.settings[file_context.current_setting]:
+                custom_build_data['custom_build_commands'] = file_context.settings[file_context.current_setting]['custom_build_commands']
+            if 'custom_build_outputs' in file_context.settings[file_context.current_setting]:
+                custom_build_data['custom_build_outputs'] = file_context.settings[file_context.current_setting]['custom_build_outputs']
+            if 'custom_build_message' in file_context.settings[file_context.current_setting]:
+                custom_build_data['custom_build_message'] = file_context.settings[file_context.current_setting]['custom_build_message']
+            if 'custom_build_additional_inputs' in file_context.settings[file_context.current_setting]:
+                custom_build_data['custom_build_additional_inputs'] = file_context.settings[file_context.current_setting]['custom_build_additional_inputs']
+            if 'custom_build_file_type' in file_context.settings[file_context.current_setting]:
+                custom_build_data['custom_build_file_type'] = file_context.settings[file_context.current_setting]['custom_build_file_type']
+            
+            # Store the custom build data in the main context
+            if custom_build_data:
+                context.dependencies.set_custom_build_file_events(context, file_path, custom_build_data)
+        
+        raise StopParseException()
+
+    def __parse_custom_build_file_type(self, context, node):
+        """Handle FileType child tag of CustomBuild"""
+        if node.text:
+            context.settings[context.current_setting]['custom_build_file_type'] = node.text
+
+    def __parse_custom_build_command(self, context, node):
+        """Handle Command child tag of CustomBuild"""
+        if node.text:
+            # Store the command for this CustomBuild item
+            if 'custom_build_commands' not in context.settings[context.current_setting]:
+                context.settings[context.current_setting]['custom_build_commands'] = []
+            context.settings[context.current_setting]['custom_build_commands'].append(node.text)
+
+    def __parse_custom_build_outputs(self, context, node):
+        """Handle Outputs child tag of CustomBuild"""
+        if node.text:
+            context.settings[context.current_setting]['custom_build_outputs'] = node.text
+
+    def __parse_custom_build_message(self, context, node):
+        """Handle Message child tag of CustomBuild"""
+        if node.text:
+            context.settings[context.current_setting]['custom_build_message'] = node.text
+
+    def __parse_custom_build_additional_inputs(self, context, node):
+        """Handle AdditionalInputs child tag of CustomBuild"""
+        if node.text:
+            context.settings[context.current_setting]['custom_build_additional_inputs'] = node.text

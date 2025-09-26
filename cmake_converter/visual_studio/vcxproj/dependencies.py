@@ -411,3 +411,20 @@ class VCXDependencies(Dependencies):
             'custom_build_events',
             'Custom build'
         )
+
+    def set_custom_build_file_events(self, context, file_path, custom_build_data):
+        """ Setting of custom build events for specific files """
+        if 'custom_build_commands' not in context.settings[context.current_setting]:
+            context.settings[context.current_setting]['custom_build_commands'] = []
+        
+        # Store custom build data for this file
+        file_custom_build = {
+            'file_path': file_path,
+            'commands': custom_build_data.get('custom_build_commands', []),
+            'outputs': custom_build_data.get('custom_build_outputs', ''),
+            'message': custom_build_data.get('custom_build_message', ''),
+            'additional_inputs': custom_build_data.get('custom_build_additional_inputs', ''),
+            'file_type': custom_build_data.get('custom_build_file_type', '')
+        }
+        
+        context.settings[context.current_setting]['custom_build_commands'].append(file_custom_build)
