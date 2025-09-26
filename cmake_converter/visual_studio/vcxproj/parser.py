@@ -290,7 +290,7 @@ class VCXParser(Parser):
         del attr_name
 
         found = re.search(r".*=='(.*)'", condition_value)
-        if not found:
+        if not found or "|" not in found.group(1):
             return
 
         cmake_setting = make_cmake_configuration(context, found.group(1))
