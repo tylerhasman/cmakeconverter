@@ -804,19 +804,23 @@ class CMakeWriter:
         # Prepare outputs
         outputs_str = ''
         if outputs:
-            outputs_str = '{0}OUTPUT "{1}"\n'.format(context.indent, outputs)
+            escaped_outputs = self.__escape_custom_build_string(context, outputs)
+            outputs_str = '{0}OUTPUT "{1}"\n'.format(context.indent, escaped_outputs)
         
         # Prepare depends
         depends_str = ''
         if depends:
-            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, depends)
+            escaped_depends = self.__escape_custom_build_string(context, depends)
+            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, escaped_depends)
         elif additional_inputs:
-            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, additional_inputs)
+            escaped_inputs = self.__escape_custom_build_string(context, additional_inputs)
+            depends_str = '{0}DEPENDS "{1}"\n'.format(context.indent, escaped_inputs)
         
         # Prepare comment
         comment_str = ''
         if message:
-            comment_str = '{0}COMMENT "{1}"\n'.format(context.indent, message)
+            escaped_message = self.__escape_custom_build_string(context, message)
+            comment_str = '{0}COMMENT "{1}"\n'.format(context.indent, escaped_message)
         
         # Write the custom command
         cmake_file.write('add_custom_command_if(\n')
@@ -824,11 +828,43 @@ class CMakeWriter:
         cmake_file.write('{0}COMMANDS\n'.format(context.indent))
         
         for command in commands:
-            cmake_file.write('{0}{1}\n'.format(context.indent * 2, command))
+            # Properly escape the command for CMake
+            escaped_command = self.__escape_custom_build_command(context, command)
+            cmake_file.write('{0}{1}\n'.format(context.indent * 2, escaped_command))
         
         cmake_file.write(depends_str)
         cmake_file.write(comment_str)
         cmake_file.write(')\n\n')
+
+    def __escape_custom_build_command(self, context, command):
+        """Escape CustomBuild command for CMake, preserving Visual Studio macros"""
+        from cmake_converter.utils import replace_vs_vars_with_cmake_vars
+        
+        # First convert VS variables to CMake variables
+        escaped_command = replace_vs_vars_with_cmake_vars(context, command)
+        
+        # Escape backslashes for CMake
+        escaped_command = escaped_command.replace('\\', '\\\\')
+        
+        # Escape quotes for CMake
+        escaped_command = escaped_command.replace('"', '\\"')
+        
+        return escaped_command
+
+    def __escape_custom_build_string(self, context, string):
+        """Escape CustomBuild string for CMake, preserving Visual Studio macros"""
+        from cmake_converter.utils import replace_vs_vars_with_cmake_vars
+        
+        # First convert VS variables to CMake variables
+        escaped_string = replace_vs_vars_with_cmake_vars(context, string)
+        
+        # Escape backslashes for CMake
+        escaped_string = escaped_string.replace('\\', '\\\\')
+        
+        # Escape quotes for CMake
+        escaped_string = escaped_string.replace('"', '\\"')
+        
+        return escaped_string
 
     @staticmethod
     def write_sln_dependencies(context, cmake_file):
