@@ -913,11 +913,14 @@ class CMakeWriter:
             target_link_specifier = 'PRIVATE'
 
         if context.target_references:
-            # Separate utility projects from linkable projects
+            # Separate utility projects from linkable projects by checking if they have sources
             utility_refs = []
             linkable_refs = []
+            
             for reference in context.target_references:
-                if reference in context.utility_projects:
+                # Check if this referenced project is a utility project by looking for its .vcxproj file
+                is_utility = CMakeWriter._is_utility_project(context, reference)
+                if is_utility:
                     utility_refs.append(reference)
                 else:
                     linkable_refs.append(reference)
@@ -1143,6 +1146,48 @@ class CMakeWriter:
             .format(context.indent)
         )
         cmake.write('endfunction()\n\n')
+
+    @staticmethod
+    def _is_utility_project(context, project_name):
+        """
+        Check if a referenced project is a utility project (has no sources).
+        This is done by checking if a CMakeLists.txt file for this project exists
+        and contains add_custom_target instead of add_library or add_executable.
+        
+        :param context: current context
+        :type context: Context
+        :param project_name: name of the project to check
+        :type project_name: str
+        :return: True if this is a utility project, False otherwise
+        :rtype: bool
+        """
+        import os
+        
+        # Look for the CMakeLists.txt file for this project
+        # It could be in the same directory or a subdirectory
+        solution_dir = os.path.dirname(context.vcxproj_path)
+        possible_locations = [
+            os.path.join(solution_dir, 'CMakeLists.txt'),
+            os.path.join(solution_dir, project_name, 'CMakeLists.txt'),
+            os.path.join(solution_dir, '..', project_name, 'CMakeLists.txt'),
+            os.path.join(solution_dir, '..', 'external', project_name, 'CMakeLists.txt'),
+        ]
+        
+        for cmake_path in possible_locations:
+            if os.path.exists(cmake_path):
+                try:
+                    with open(cmake_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        # Check if this project contains add_custom_target (utility project)
+                        if f'set(PROJECT_NAME {project_name})' in content or f'project({project_name}' in content:
+                            if 'add_custom_target(' in content and 'add_library(' not in content and 'add_executable(' not in content:
+                                return True
+                except (IOError, UnicodeDecodeError):
+                    # If we can't read the file, assume it's linkable
+                    continue
+        
+        # If we can't determine, assume it's linkable (safer default)
+        return False
 
     @staticmethod
     def __write_supported_architectures_check(context, cmake_file):
