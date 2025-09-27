@@ -839,30 +839,38 @@ class CMakeWriter:
     def __escape_custom_build_command(self, context, command):
         """Escape CustomBuild command for CMake, preserving Visual Studio macros"""
         from cmake_converter.utils import replace_vs_vars_with_cmake_vars
+        import re
         
         # First convert VS variables to CMake variables
         escaped_command = replace_vs_vars_with_cmake_vars(context, command)
         
-        # Escape backslashes for CMake
-        escaped_command = escaped_command.replace('\\', '\\\\')
+        # For CMake, we need to be more careful about escaping
+        # Only escape backslashes that are path separators, not command syntax
         
-        # Escape quotes for CMake
-        escaped_command = escaped_command.replace('"', '\\"')
+        # Escape backslashes that are likely path separators (not part of command syntax)
+        # This is a simple approach: only escape backslashes that are followed by non-quote characters
+        # or are at the end of the string (likely path separators)
+        escaped_command = re.sub(r'\\(?!")', r'\\\\', escaped_command)
+        
+        # Do NOT escape quotes - they should remain as-is for the command
         
         return escaped_command
 
     def __escape_custom_build_string(self, context, string):
         """Escape CustomBuild string for CMake, preserving Visual Studio macros"""
         from cmake_converter.utils import replace_vs_vars_with_cmake_vars
+        import re
         
         # First convert VS variables to CMake variables
         escaped_string = replace_vs_vars_with_cmake_vars(context, string)
         
-        # Escape backslashes for CMake
-        escaped_string = escaped_string.replace('\\', '\\\\')
+        # For CMake, we need to be more careful about escaping
+        # Only escape backslashes that are path separators, not command syntax
         
-        # Escape quotes for CMake
-        escaped_string = escaped_string.replace('"', '\\"')
+        # Escape backslashes that are likely path separators (not part of command syntax)
+        escaped_string = re.sub(r'\\(?!")', r'\\\\', escaped_string)
+        
+        # Do NOT escape quotes - they should remain as-is for the command
         
         return escaped_string
 
