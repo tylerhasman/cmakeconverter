@@ -824,7 +824,7 @@ class CMakeWriter:
         cmake_file.write('{0}COMMANDS\n'.format(context.indent))
         
         for command in commands:
-            cmake_file.write('{0}{1}\n'.format(context.indent * 2, command).replace('\\', '\\\\'))
+            cmake_file.write('{0}{1}\n'.format(context.indent * 2, command).replace('\\', '\\\\').replace('\n', ' '))
         
         cmake_file.write(depends_str)
         cmake_file.write(comment_str)
