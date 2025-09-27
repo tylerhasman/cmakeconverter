@@ -300,7 +300,8 @@ class DataConverter:
                     'target_name': target_context.project_name,
                     'project_languages': target_context.project_languages,
                     'target_windows_ver': target_context.target_windows_version,
-                    'warnings_count': target_context.warnings_count
+                    'warnings_count': target_context.warnings_count,
+                    'is_utility': not target_context.sources  # Track if this is a utility project (no sources)
                 }
             )
         return results

@@ -55,6 +55,7 @@ class Context:
         self.packages_config_path = ''
         self.import_projects = []
         self.packages = []
+        self.utility_projects = set()  # Track which projects are utility projects (no sources)
 
         self.projects_regexp = '.*'
         self.additional_code = None

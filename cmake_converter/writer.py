@@ -913,14 +913,35 @@ class CMakeWriter:
             target_link_specifier = 'PRIVATE'
 
         if context.target_references:
-            cmake_file.write('# Link with other targets.\n')
-            cmake_file.write('target_link_libraries(${{PROJECT_NAME}} {}\n'
-                             .format(target_link_specifier))
+            # Separate utility projects from linkable projects
+            utility_refs = []
+            linkable_refs = []
             for reference in context.target_references:
-                cmake_file.write('{}{}\n'.format(context.indent, reference))
-                msg = 'External library found : {}'.format(reference)
-                message(context, msg, '')
-            cmake_file.write(')\n\n')
+                if reference in context.utility_projects:
+                    utility_refs.append(reference)
+                else:
+                    linkable_refs.append(reference)
+            
+            # Handle utility projects with add_dependencies
+            if utility_refs:
+                cmake_file.write('# Dependencies on utility targets.\n')
+                cmake_file.write('add_dependencies(${PROJECT_NAME}\n')
+                for reference in utility_refs:
+                    cmake_file.write('{}{}\n'.format(context.indent, reference))
+                    msg = 'Utility dependency found : {}'.format(reference)
+                    message(context, msg, '')
+                cmake_file.write(')\n\n')
+            
+            # Handle linkable projects with target_link_libraries
+            if linkable_refs:
+                cmake_file.write('# Link with other targets.\n')
+                cmake_file.write('target_link_libraries(${{PROJECT_NAME}} {}\n'
+                                 .format(target_link_specifier))
+                for reference in linkable_refs:
+                    cmake_file.write('{}{}\n'.format(context.indent, reference))
+                    msg = 'External library found : {}'.format(reference)
+                    message(context, msg, '')
+                cmake_file.write(')\n\n')
 
         if is_settings_has_data(context.sln_configurations_map,
                                 context.settings,

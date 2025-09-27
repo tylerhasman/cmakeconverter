@@ -407,6 +407,8 @@ class VSSolutionConverter(DataConverter):
                     project_context.target_windows_version = \
                         sln_target_result['target_windows_ver']
                 project_context.warnings_count += sln_target_result['warnings_count']
+                if sln_target_result.get('is_utility', False):
+                    project_context.utility_projects.add(sln_target_result['target_name'])
 
     @staticmethod
     def __get_global_configuration_types(solution_data):
