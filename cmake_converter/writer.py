@@ -26,6 +26,7 @@
 """
 
 import os
+import shlex
 from collections import OrderedDict
 
 from cmake_converter.utils import message, make_cmake_literal,\
@@ -824,7 +825,7 @@ class CMakeWriter:
         cmake_file.write('{0}COMMANDS\n'.format(context.indent))
         
         for command in commands:
-            cmake_file.write('{0}{1}'.format(context.indent * 2, command).replace('\\', '\\\\').replace('\n', ' '))
+            cmake_file.write('{0}{1}'.format(context.indent * 2, shlex.split(command, posix=False)).replace('\\', '\\\\').replace('\n', ' '))
         
         cmake_file.write('\n')
 
