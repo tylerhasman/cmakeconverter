@@ -28,6 +28,7 @@
 import os
 import shlex
 from collections import OrderedDict
+import stat
 
 from cmake_converter.utils import message, make_cmake_literal,\
     normalize_path, is_settings_has_data, set_unix_slash
@@ -788,6 +789,23 @@ class CMakeWriter:
                             context, cmake_file, custom_build, depends
                         )
 
+    def __cmake_escape_command(self, cmd: str) -> str:
+        """
+        Convert a raw Windows command string into a CMake-safe string
+        with quotes escaped where necessary.
+        """
+        parts = shlex.split(cmd, posix=False)
+        escaped = []
+        for p in parts:
+            if '=' in p and not p.startswith('('):
+                k, v = p.split('=', 1)
+                escaped.append(f'{k}=\\"{v}\\"')
+            elif ' ' in p and not (p.startswith('(') and p.endswith(')')):
+                escaped.append(f'"{p}"')
+            else:
+                escaped.append(p)
+        return " ".join(escaped)
+
     def __write_single_custom_build_file_event(self, context, cmake_file, custom_build, depends):
         """ Writes a single custom build file event into CMakeLists.txt """
         file_path = custom_build.get('file_path', '')
@@ -825,7 +843,7 @@ class CMakeWriter:
         cmake_file.write('{0}COMMANDS\n'.format(context.indent))
         
         for command in commands:
-            cmake_file.write('{0}{1}'.format(context.indent * 2, shlex.split(command, posix=False)).replace('\\', '\\\\').replace('\n', ' '))
+            cmake_file.write('{0}{1}'.format(context.indent * 2, self.__cmake_escape_command(command)).replace('\\', '\\\\').replace('\n', ' '))
         
         cmake_file.write('\n')
 
