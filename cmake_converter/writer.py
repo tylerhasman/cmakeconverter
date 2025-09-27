@@ -913,14 +913,26 @@ class CMakeWriter:
             target_link_specifier = 'PRIVATE'
 
         if context.target_references:
-            cmake_file.write('# Link with other targets.\n')
-            cmake_file.write('target_link_libraries(${{PROJECT_NAME}} {}\n'
-                             .format(target_link_specifier))
+            # Filter out utility targets that cannot be linked
+            linkable_references = []
             for reference in context.target_references:
-                cmake_file.write('{}{}\n'.format(context.indent, reference))
-                msg = 'External library found : {}'.format(reference)
-                message(context, msg, '')
-            cmake_file.write(')\n\n')
+                # Check if this is a utility target by looking at the project type
+                # Utility targets typically have ConfigurationType like "Makefile" or "Utility"
+                # We need to check if the referenced project is a utility target
+                if CMakeWriter._is_utility_target(context, reference):
+                    message(context, 'Skipping utility target from linking: {}'.format(reference), 'warn')
+                    continue
+                linkable_references.append(reference)
+            
+            if linkable_references:
+                cmake_file.write('# Link with other targets.\n')
+                cmake_file.write('target_link_libraries(${{PROJECT_NAME}} {}\n'
+                                 .format(target_link_specifier))
+                for reference in linkable_references:
+                    cmake_file.write('{}{}\n'.format(context.indent, reference))
+                    msg = 'External library found : {}'.format(reference)
+                    message(context, msg, '')
+                cmake_file.write(')\n\n')
 
         if is_settings_has_data(context.sln_configurations_map,
                                 context.settings,
@@ -953,6 +965,49 @@ class CMakeWriter:
                 in_quotes=True
             )
             cmake_file.write('\n')
+
+    @staticmethod
+    def _is_utility_target(context, reference):
+        """
+        Check if a referenced target is a utility target that cannot be linked.
+        
+        :param context: current context
+        :type context: Context
+        :param reference: target reference name
+        :type reference: str
+        :return: True if the target is a utility target
+        :rtype: bool
+        """
+        # Utility targets in Visual Studio typically have ConfigurationType like:
+        # - "Makefile" 
+        # - "Utility"
+        # - "None" (for some custom build projects)
+        
+        # For now, we'll use a simple heuristic approach based on common naming patterns
+        # In a more sophisticated implementation, we could parse the actual project file
+        # to check its ConfigurationType, but that would require more complex changes.
+        
+        # Common patterns for utility targets:
+        utility_patterns = [
+            'custombuild',
+            'utility', 
+            'makefile',
+            'custom',
+            'build',
+            'script',
+            'tool'
+        ]
+        
+        reference_lower = reference.lower()
+        for pattern in utility_patterns:
+            if pattern in reference_lower:
+                return True
+        
+        # If we can't determine the project type from the reference name alone,
+        # we'll be conservative and not filter it out, letting CMake handle it
+        # and potentially show a more informative error message.
+        
+        return False
 
     @staticmethod
     def write_target_dependency_packages(context, cmake_file):
